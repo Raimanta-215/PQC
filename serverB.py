@@ -1,7 +1,7 @@
 import socket
 from net import Socket
 from sec import KEMModule 
-from logger_pqc import setup_logger, safe_key_hash
+from logger import setup_logger, safe_key_hash
 import logging
 
 

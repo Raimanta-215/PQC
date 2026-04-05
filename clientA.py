@@ -1,7 +1,7 @@
 from net import Socket
 from sec import KEMModule
 import logging
-from logger_pqc import safe_key_hash, setup_logger
+from logger import safe_key_hash, setup_logger
 
 setup_logger('Alice')
 log = logging.getLogger(__name__)
