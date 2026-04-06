@@ -7,7 +7,7 @@ from logger import safe_key_hash
 log = logging.getLogger(__name__)
 
 class SymmetricModule:
-    def __init__(self, key, iv):
+    def __init__(self, key):
         self.key = key
         self.aesgcm = AESGCM(self.key)
         log.info(f"SymmetricModule initialized with key: {safe_key_hash(self.key)}")
