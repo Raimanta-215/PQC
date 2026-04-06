@@ -1,26 +1,29 @@
 import logging
-from sec import KEMModule, SymmetricModule, derive_symmetric_key
+from sec import KEMModule, SymmetricModule, derive_symmetric_key, SignModule
 
 
 
 log = logging.getLogger(__name__)
 
 class PQCProtocol:
-    def __init__(self, kem_alg, socket_layer):
+    def __init__(self, kem_alg, sign_alg, socket_layer):
         self.net = socket_layer
         self.kem_module = KEMModule(kem_alg)
         self.symmetric_module = None
-
-        log.info(f"PQC Protocol initialized with KEM algorithm: {kem_alg}")
+        self.sign_module = SignModule(sign_alg)  
+        log.info(f"PQC Protocol initialized with KEM algorithm: {kem_alg} and {sign_alg}")
 
     def server_handshake(self):
         log.info("Starting server handshake...")
         # Step 1: Generate KEM key pair
         public_key, secret_key = self.kem_module.generate_keypair()
         
-        # Step 2: Send public key to client
-        self.net.send(public_key)
-        log.info("Public key sent to client")
+        # Step 2: Send public key to client with signature
+        sign = self.sign_module.sign(public_key)
+
+        payload = (public_key, sign)
+        self.net.send(payload)
+        log.info("Public key and signature sent to client")
 
         # Step 3: Receive encapsulated key from client
         ciphertext = self.net.recieve()
@@ -41,17 +44,25 @@ class PQCProtocol:
 
     def client_handshake(self):
         log.info("Starting client handshake...")
-        # Step 1: Receive public key from server
-        public_key = self.net.recieve()
-        log.info("Public key received from server")
+        # Step 1: Receive data (public key and signature) from server
+        data = self.net.recieve()
+        log.info("Data received from server")
 
-        if not public_key:
-            log.error("Failed to receive public key from server")
-            raise RuntimeError("Failed to receive public key from server")
+        size_private_key = self.kem_module.kem.details['public_key_length'] + self.sign_module.signer.details['signature_length']
+        extracted_private_key = data[:size_private_key]
+        signature = data[size_private_key:]
+
+        if not data:
+            log.error("Failed to receive data from server")
+            raise RuntimeError("Failed to receive data from server")
         else:
-            log.info(f"Received public key from server: {len(public_key)} bytes")
+            if not self.sign_module.verify(extracted_private_key, signature, extracted_private_key):
+                log.error("Signature verification failed for received public key")
+                raise RuntimeError("Signature verification failed for received public key")
+            
+            log.info(f"Received public key from server: {size_private_key} bytes")
             # Step 2: Encapsulate to get ciphertext and shared secret
-            ciphertext, shared_secret = self.kem_module.encapsulate(public_key)
+            ciphertext, shared_secret = self.kem_module.encapsulate(extracted_private_key)
             log.info("Encapsulation successful, sending ciphertext to server")
 
             # Step 3: Send encapsulated key to server
