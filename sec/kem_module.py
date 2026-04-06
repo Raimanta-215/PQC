@@ -1,6 +1,6 @@
 import oqs 
 import logging
-from logger_pqc import safe_key_hash
+from logger import safe_key_hash
 
 log = logging.getLogger(__name__)
 
