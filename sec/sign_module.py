@@ -6,6 +6,11 @@ import os
 log = logging.getLogger(__name__)
 
 class SignModule:
+    """
+    A module for handling PQC signature operations.
+
+
+    """
     def __init__(self, alg_name):
         self.alg_name = alg_name
         self.signer = oqs.Signature(alg_name)

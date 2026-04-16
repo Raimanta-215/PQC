@@ -1,5 +1,4 @@
 import requests
-import json
 
 with open("cert/bob.csr", "r") as f:
     csr_text = f.read()

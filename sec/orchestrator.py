@@ -6,6 +6,28 @@ from sec import KEMModule, SymmetricModule, derive_symmetric_key, SignModule
 log = logging.getLogger(__name__)
 
 class PQCProtocol:
+    """
+    Class to handle the post-quantum cryptographic protocol 
+    for secure communication between a client and a server.
+    
+    This protocol includes a handshake phase for key exchange and
+    methods for sending and receiving encrypted messages using the established session key.
+
+    Attributes:
+    - net (Socket): The socket layer used for network communication.
+    - kem_module (KEMModule): The module for key encapsulation mechanism operations.
+    - symmetric_module (SymmetricModule): The module for symmetric encryption and decryption, initialized after the handshake.
+    - sign_module (SignModule): The module for digital signature operations.
+
+    Methods:
+    - server_handshake(): Performs the server-side handshake to establish a shared session key with the client.
+    - client_handshake(): Performs the client-side handshake to establish a shared session key with the server.
+    - send_encrypted_msg(msg): Encrypts and sends a message to the other party.
+    - receive_encrypted_msg(): Receives and decrypts a message from the other party.
+    - close(): Closes the protocol resources, including the network connection.
+
+
+    """
     def __init__(self, kem_alg, sign_alg, socket_layer):
         self.net = socket_layer
         self.kem_module = KEMModule(kem_alg)
@@ -14,22 +36,37 @@ class PQCProtocol:
         log.info(f"PQC Protocol initialized with KEM algorithm: {kem_alg} and {sign_alg}")
 
     def server_handshake(self):
+        """
+        Performs the server-side handshake to establish a shared session key with the client.
+
+        Steps:
+        1. Generate a KEM key pair (public and secret keys).    
+        2. Sign the public key using the signature module.
+        3. Send the public key and its signature to the client.
+        4. Receive the encapsulated key (ciphertext) from the client.
+        5. Decapsulate the received ciphertext to obtain the shared secret.
+        6. Derive a symmetric session key from the shared secret and initialize the symmetric module for encryption/decryption.
+
+
+        """
         log.info("Starting server handshake...")
-        # Step 1: Generate KEM key pair
+        # 1 : Generate KEM key pair
         public_key, secret_key = self.kem_module.generate_keypair()
         
-        # Step 2: Send public key to client with signature
-        sign = self.sign_module.sign(public_key)
+        # 2 : Sign the public key
+        # TO IMPLEMENT with the signature module
 
-        payload = (public_key, sign)
+        payload = (public_key)
+
+        # 3 : Send public key and signature to client
         self.net.send(payload)
         log.info("Public key and signature sent to client")
 
-        # Step 3: Receive encapsulated key from client
+        # 4 : Receive encapsulated key from client
         ciphertext = self.net.recieve()
         log.info("Encapsulated key received from client")
 
-        # Step 4: Decapsulate to get shared secret
+        # 5 : Decapsulate to get shared secret
         if not ciphertext:
             log.error("Failed to receive encapsulated key from client")
             raise RuntimeError("Failed to receive encapsulated key from client")
@@ -37,45 +74,63 @@ class PQCProtocol:
             shared_secret = self.kem_module.decapsulate(ciphertext)
             log.info("Shared secret decapsulated successfully")
 
-        # Step 5: Derive symmetric key and initialize symmetric module
+        # 6: Derive symmetric key and initialize symmetric module
             session_key = derive_symmetric_key(shared_secret)
             self.symmetric_module = SymmetricModule(session_key)
             log.info("Symmetric module initialized with derived session key")
 
     def client_handshake(self):
-        log.info("Starting client handshake...")
-        # Step 1: Receive data (public key and signature) from server
-        data = self.net.recieve()
-        log.info("Data received from server")
+        """
+        Performs the client-side handshake to establish a shared session key with the server.
 
-        size_private_key = self.kem_module.kem.details['public_key_length'] + self.sign_module.signer.details['signature_length']
-        extracted_private_key = data[:size_private_key]
-        signature = data[size_private_key:]
+        Steps:
+        1. Receive the server's public key and its signature.
+        2. Verify the signature of the received public key.
+        3. Encapsulate a shared secret using the received public key to obtain a ciphertext and the shared secret.
+        4. Send the encapsulated key (ciphertext) back to the server.
+        5. Derive a symmetric session key from the shared secret and initialize the symmetric module  for encryption/decryption.
+
+        """
+        log.info("Starting client handshake...")
+        #  1: Receive public key from server
+        data = self.net.recieve()
+        log.info("Public key received from server")
+
+        # 2 : verifiy signature of the received public key
+        # TO IMPLEMENT with the signature module
 
         if not data:
-            log.error("Failed to receive data from server")
-            raise RuntimeError("Failed to receive data from server")
+            log.error("Failed to receive public key from server")
+            raise RuntimeError("Failed to receive public key from server")
         else:
-            if not self.sign_module.verify(extracted_private_key, signature, extracted_private_key):
-                log.error("Signature verification failed for received public key")
-                raise RuntimeError("Signature verification failed for received public key")
-            
-            log.info(f"Received public key from server: {size_private_key} bytes")
-            # Step 2: Encapsulate to get ciphertext and shared secret
-            ciphertext, shared_secret = self.kem_module.encapsulate(extracted_private_key)
+            log.info(f"Received public key from server: {len(data)} bytes")
+            #  3: Encapsulate to get ciphertext and shared secret
+            ciphertext, shared_secret = self.kem_module.encapsulate(data)
             log.info("Encapsulation successful, sending ciphertext to server")
 
-            # Step 3: Send encapsulated key to server
+            #  4: Send encapsulated key to server
             self.net.send(ciphertext)
             log.info("Ciphertext sent to server")
 
-            # Step 4: Derive symmetric key and initialize symmetric module
+            #  5: Derive symmetric key and initialize symmetric module
             session_key = derive_symmetric_key(shared_secret)
             self.symmetric_module = SymmetricModule(session_key)
             log.info("Symmetric module initialized with derived session key")
 
 
+
     def send_encrypted_msg(self, msg):
+        """
+        Encrypts and sends a message to the other party.
+
+        Args:
+        - msg (bytes): The plaintext message to be encrypted and sent.
+
+        Raises:
+        - RuntimeError: If the symmetric module is not initialized, an error is raised indicating that
+            the encrypted message cannot be sent.
+
+        """
         if self.symmetric_module is None:
             log.error("Symmetric module not initialized. Cannot send encrypted message.")
             raise RuntimeError("Symmetric module not initialized")
@@ -85,6 +140,15 @@ class PQCProtocol:
         log.info(f"Encrypted message sent (ciphertext length: {len(ciphertext)} bytes)")
 
     def receive_encrypted_msg(self):
+        """
+        Receives and decrypts a message from the other party.
+        
+        returns:
+        - bytes: The decrypted plaintext message received from the other party.
+
+        Raises:
+        - RuntimeError: If the symmetric module is not initialized, an error is raised indicating that
+        """
         if self.symmetric_module is None:
             log.error("Symmetric module not initialized. Cannot receive encrypted message.")
             raise RuntimeError("Symmetric module not initialized")

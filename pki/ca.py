@@ -14,7 +14,7 @@ def sign_csr():
     user_name = data.get('identity')
 
     if not csr_content:
-        return jsonify({"error": "Aucune CSR fournie"}), 400
+        return jsonify({"error": "No CSR provided"}), 400
 
     temp_csr_path = f"temp_{user_name}.csr"
     temp_crt_path = f"temp_{user_name}.crt"
