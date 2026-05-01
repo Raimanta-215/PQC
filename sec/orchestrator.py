@@ -35,6 +35,7 @@ class PQCProtocol:
         self.sign_module = SignModule(sign_alg)  
         log.info(f"PQC Protocol initialized with KEM algorithm: {kem_alg} and {sign_alg}")
 
+
     def server_handshake(self):
         """
         Performs the server-side handshake to establish a shared session key with the client.
@@ -53,10 +54,17 @@ class PQCProtocol:
         # 1 : Generate KEM key pair
         public_key, secret_key = self.kem_module.generate_keypair()
         
-        # 2 : Sign the public key
-        # TO IMPLEMENT with the signature module
+        # 2 : Sign the Kyber public key
 
-        payload = (public_key)
+        try:
+            signature = self.sign_module.sign(public_key)
+            log.info(f"Public key signed successfully. Signature length: {len(signature)} bytes")
+        except Exception as e:
+            log.error(f"Error occurred during signing the public key: {str(e)}")
+            raise RuntimeError("Failed to sign the public key") from e
+
+
+        payload = (public_key, signature, self.sign_module.cert_data)
 
         # 3 : Send public key and signature to client
         self.net.send(payload)
@@ -71,7 +79,7 @@ class PQCProtocol:
             log.error("Failed to receive encapsulated key from client")
             raise RuntimeError("Failed to receive encapsulated key from client")
         else:
-            shared_secret = self.kem_module.decapsulate(ciphertext)
+            shared_secret = self.kem_module.decapsulate(ciphertext, secret_key)
             log.info("Shared secret decapsulated successfully")
 
         # 6: Derive symmetric key and initialize symmetric module
@@ -93,29 +101,44 @@ class PQCProtocol:
         """
         log.info("Starting client handshake...")
         #  1: Receive public key from server
+        log.info(f"Received public key from server: {len(data)} bytes")
+
         data = self.net.recieve()
         log.info("Public key received from server")
-
-        # 2 : verifiy signature of the received public key
-        # TO IMPLEMENT with the signature module
 
         if not data:
             log.error("Failed to receive public key from server")
             raise RuntimeError("Failed to receive public key from server")
-        else:
-            log.info(f"Received public key from server: {len(data)} bytes")
-            #  3: Encapsulate to get ciphertext and shared secret
-            ciphertext, shared_secret = self.kem_module.encapsulate(data)
-            log.info("Encapsulation successful, sending ciphertext to server")
+        
+        try:
+            public_key, signature, bob_crt = data
+            log.info(f"Received public key and signature from server. Public key length: {len(public_key)} bytes, Signature length: {len(signature)} bytes")
+        except Exception as e:
+            log.error(f"Error occurred while unpacking received data: {str(e)}")
+            raise RuntimeError("Failed to unpack received data from server")
+        
+        
+        ca_path = "pqc_ca.crt"
 
-            #  4: Send encapsulated key to server
-            self.net.send(ciphertext)
-            log.info("Ciphertext sent to server")
+        # 2 : verify signature of the received public key
+        is_valid_signature = self.sign_module.verify_with_pki(bob_crt, ca_path)
+        if not is_valid_signature:
+            log.error("Invalid signature for the received public key")
+            raise PermissionError("Invalid signature for the received public key")
+        log.info("Signature of the received public key is valid")
+        
+        #  3: Encapsulate to get ciphertext and shared secret
+        ciphertext, shared_secret = self.kem_module.encapsulate(data)
+        log.info("Encapsulation successful, sending ciphertext to server")
 
-            #  5: Derive symmetric key and initialize symmetric module
-            session_key = derive_symmetric_key(shared_secret)
-            self.symmetric_module = SymmetricModule(session_key)
-            log.info("Symmetric module initialized with derived session key")
+        #  4: Send encapsulated key to server
+        self.net.send(ciphertext)
+        log.info("Ciphertext sent to server")
+
+        #  5: Derive symmetric key and initialize symmetric module
+        session_key = derive_symmetric_key(shared_secret)
+        self.symmetric_module = SymmetricModule(session_key)
+        log.info("Symmetric module initialized with derived session key")
 
 
 

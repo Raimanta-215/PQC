@@ -25,8 +25,8 @@ client_sock, addr = server_sock.accept()
 bob_sock = Socket(sock=client_sock) # Wrap the accepted socket in our Socket class for communication
 log.info(f"Connection established with ALICE at {addr}")
 protocol = PQCProtocol(ALG_KYBER, bob_sock)
-
 try:
+
     protocol.server_handshake()
 
     msg = protocol.receive_encrypted_msg()

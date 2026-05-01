@@ -8,7 +8,7 @@ payload = {
     "csr": csr_text
 }
 
-response = requests.post("http://192.168.174.183:5000/ca", json=payload)
+response = requests.post("http://192.168.174.183:5000/ca/certificate", json=payload)
 
 if response.status_code == 200:
     cert_text = response.json()['certificate']
@@ -20,6 +20,8 @@ else:
     print("Erreur:", response.text)
 
 '''
+avec provider 
+
 openssl genpkey -algorithm p384_mldsa65 -provider oqsprovider -provider default -out cert/bob.key
 
 openssl req -new -key cert/bob.key -subj "/CN=Bob" -provider oqsprovider -provider default -out cert/bob.csr

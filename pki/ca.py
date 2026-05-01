@@ -7,7 +7,7 @@ app = Flask(__name__)
 CA_CERT = "pqc_ca.crt"
 CA_KEY = "pqc_ca.key"
 
-@app.route('/ca', methods=['POST'])
+@app.route('/ca/certificate', methods=['POST'])
 def sign_csr():
     data = request.get_json()
     csr_content = data.get('csr')
@@ -30,11 +30,15 @@ def sign_csr():
                     "-CAkey", CA_KEY,
                     "-CAcreateserial",
                     "-out", temp_crt_path,
-                    "-days", "365",
+                    "-days", "365"
+
+                ]
+        ''' commands if using provider
+        
                     "-provider-path", "/home/pki/oqs-provider/build/lib",
                     "-provider", "oqsprovider",
                     "-provider", "default"
-                ]
+        '''
 
         subprocess.run(command, check=True, capture_output=True, text=True)
 
@@ -51,6 +55,19 @@ def sign_csr():
 
     except subprocess.CalledProcessError as e:
         return jsonify({"error": "Erreur OpenSSL", "details": e.stderr}), 500
+
+
+@app.route('/ca', methods=['GET'])
+def send_root_cert():
+    try:
+        with open(CA_CERT, "r") as f:
+            ca_cert_content = f.read()
+        return jsonify({
+            "status": "success",
+            "certificate": ca_cert_content
+        })
+    except Exception as e:
+        return jsonify({"error": "Failed to read CA certificate", "details": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
