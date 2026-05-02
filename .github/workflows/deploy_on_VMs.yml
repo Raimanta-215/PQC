@@ -6,7 +6,8 @@ on:
 
 jobs:
   deploy-poc:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    environment: PoC
     steps:
           - name: Checkout code
             uses: actions/checkout@v4
