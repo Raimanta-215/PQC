@@ -31,7 +31,7 @@ jobs:
               username: "bob"
               key: ${{ secrets.SSH_BOB }}
               # On prend tout sauf pki et le client
-              source: "*,!pki,!clientA.py"
+              source: "net, sec, serverB.py "
               target: "PQC/"
     
           # DÉPLOIEMENT ALICE
@@ -42,5 +42,5 @@ jobs:
               username: "alice"
               key: ${{ secrets.SSH_ALICE }}
               # On prend tout sauf pki et le serveur
-              source: "*,!pki,!serverB.py"
+              source: "net, sec, clientA.py "
               target: "PQC/"
