@@ -20,7 +20,7 @@ jobs:
           key: ${{ secrets.SSH_PKI }}
           source: "pki/ca.py"
           target: "~"
-          strip_component: 1
+          strip_components: 1
 
       # 2. Déploiement sur le SERVER BOB 
       - name: Deploy to Bob (Server)
