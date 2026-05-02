@@ -8,40 +8,38 @@ jobs:
   deploy-poc:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Deploy to PKI
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.HOST_PKI }}
-          username: pki
-          key: ${{ secrets.SSH_PKI }}
-          script: |
-            scp -r ${{ github.workspace }}/pki/ca.py ~
-
-      - name: Deploy to Bob (Server)
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.HOST_BOB }}
-          username: bob
-          key: ${{ secrets.SSH_BOB }}
-          script: |
-            mkdir -p ~/PQC
-            scp -r ${{ github.workspace }}/* ~/PQC/ \
-              --exclude='pki' \
-              --exclude='clientA.py' \
-              --exclude='.git'
-
-      - name: Deploy to Alice (Client)
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.HOST_ALICE }}
-          username: alice
-          key: ${{ secrets.SSH_ALICE }}
-          script: |
-            mkdir -p ~/PQC
-            scp -r ${{ github.workspace }}/* ~/PQC/ \
-              --exclude='pki' \
-              --exclude='serverB.py' \
-              --exclude='.git'
+          - name: Checkout code
+            uses: actions/checkout@v4
+    
+          # DÉPLOIEMENT PKI
+          - name: Deploy to PKI
+            uses: appleboy/scp-action@master
+            with:
+              host: ${{ secrets.HOST_PKI }}
+              username: "pki"
+              key: ${{ secrets.SSH_PKI }}
+              source: "pki/ca.py"
+              target: "~"
+              strip_components: 1
+    
+          # DÉPLOIEMENT BOB
+          - name: Deploy to Bob
+            uses: appleboy/scp-action@master
+            with:
+              host: ${{ secrets.HOST_BOB }}
+              username: "bob"
+              key: ${{ secrets.SSH_BOB }}
+              # On prend tout sauf pki et le client
+              source: "*,!pki,!clientA.py"
+              target: "PQC/"
+    
+          # DÉPLOIEMENT ALICE
+          - name: Deploy to Alice
+            uses: appleboy/scp-action@master
+            with:
+              host: ${{ secrets.HOST_ALICE }}
+              username: "alice"
+              key: ${{ secrets.SSH_ALICE }}
+              # On prend tout sauf pki et le serveur
+              source: "*,!pki,!serverB.py"
+              target: "PQC/"
