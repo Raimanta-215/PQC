@@ -64,10 +64,11 @@ class PQCProtocol:
             raise RuntimeError("Failed to sign the public key") from e
 
 
-        payload = (public_key, signature, self.sign_module.cert_data)
+        payload = [public_key, signature, self.sign_module.cert_data]
 
         # 3 : Send public key and signature to client
-        self.net.send(payload)
+        for item in payload:
+            self.net.send(item)
         log.info("Public key and signature sent to client")
 
         # 4 : Receive encapsulated key from client
@@ -79,7 +80,7 @@ class PQCProtocol:
             log.error("Failed to receive encapsulated key from client")
             raise RuntimeError("Failed to receive encapsulated key from client")
         else:
-            shared_secret = self.kem_module.decapsulate(ciphertext, secret_key)
+            shared_secret = self.kem_module.decapsulate(ciphertext)
             log.info("Shared secret decapsulated successfully")
 
         # 6: Derive symmetric key and initialize symmetric module
@@ -93,7 +94,7 @@ class PQCProtocol:
 
         Steps:
         1. Receive the server's public key and its signature.
-        2. Verify the signature of the received public key.
+        2. Verify the Bob signature of the received public key.
         3. Encapsulate a shared secret using the received public key to obtain a ciphertext and the shared secret.
         4. Send the encapsulated key (ciphertext) back to the server.
         5. Derive a symmetric session key from the shared secret and initialize the symmetric module  for encryption/decryption.
@@ -101,34 +102,51 @@ class PQCProtocol:
         """
         log.info("Starting client handshake...")
         #  1: Receive public key from server
-        log.info(f"Received public key from server: {len(data)} bytes")
 
-        data = self.net.recieve()
-        log.info("Public key received from server")
+        public_key = self.net.recieve()
+        signature  = self.net.recieve()
+        bob_crt    = self.net.recieve()   
+        
+        log.info("Datas received from server")
 
-        if not data:
-            log.error("Failed to receive public key from server")
-            raise RuntimeError("Failed to receive public key from server")
-        
-        try:
-            public_key, signature, bob_crt = data
-            log.info(f"Received public key and signature from server. Public key length: {len(public_key)} bytes, Signature length: {len(signature)} bytes")
-        except Exception as e:
-            log.error(f"Error occurred while unpacking received data: {str(e)}")
-            raise RuntimeError("Failed to unpack received data from server")
-        
-        
-        ca_path = "pqc_ca.crt"
+        ## VERIFICATION OF THE RECEIVED DATA
+        expected_lengths = {
+            "public_key" : self.kem_module.kem.details['length_public_key'],
+            "signature" : self.sign_module.signer.details['length_signature']
+        }
 
-        # 2 : verify signature of the received public key
-        is_valid_signature = self.sign_module.verify_with_pki(bob_crt, ca_path)
-        if not is_valid_signature:
+
+        if len(public_key) != expected_lengths["public_key"]:
+            log.error(f"Received public key length {len(public_key)} does not match expected length {expected_lengths['public_key']}")
+            raise ValueError("Invalid public key length received from server")
+        if len(signature) != expected_lengths["signature"]:
+            log.error(f"Received signature length {len(signature)} does not match expected length {expected_lengths['signature']}")
+            raise ValueError("Invalid signature length received from server")
+        if len(bob_crt) == 0:
+            log.error("Received empty certificate from server")
+            raise ValueError("Empty certificate received from server")
+        
+        log.info(f"Received public key from server: {len(public_key)} bytes, signature length: {len(signature)} bytes, certificate length: {len(bob_crt)} bytes")
+
+        ca_path = "cert/pqc_ca.crt"
+
+        # 2 : verify identity of the received public key
+        bob_pub_key = self.sign_module.verify_with_pki(bob_crt, ca_path)
+        if not bob_pub_key:
             log.error("Invalid signature for the received public key")
             raise PermissionError("Invalid signature for the received public key")
         log.info("Signature of the received public key is valid")
         
+        # Verify Bob signature
+        is_valid_signature = self.sign_module.verify_(public_key, signature, bob_pub_key)
+        if not is_valid_signature:
+            log.error("Invalid signature for the received public key")
+            raise PermissionError("Invalid signature for the received public key")
+        log.info("Signature of the received public key is valid")
+
+
         #  3: Encapsulate to get ciphertext and shared secret
-        ciphertext, shared_secret = self.kem_module.encapsulate(data)
+        ciphertext, shared_secret = self.kem_module.encapsulate(public_key)
         log.info("Encapsulation successful, sending ciphertext to server")
 
         #  4: Send encapsulated key to server

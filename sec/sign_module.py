@@ -40,8 +40,8 @@ class SignModule:
                 "-pubout",
                 "-out", pk_file_path], check=True)
             
-            self.public_dil_key = pk_file_path
-            self.secret_dil_key = sk_file_path
+            self.public_dil_key_path = pk_file_path
+            self.secret_dil_key_path = sk_file_path
 
             log.info(f"Key pair generated and saved: Public key at {pk_file_path}, Secret key at {sk_file_path}" )
         except subprocess.CalledProcessError as e:
@@ -68,14 +68,14 @@ class SignModule:
     def load_keypair(self, pk_file_path, sk_file_path):
         """Charge les chemins des clés de Bob."""
         if os.path.exists(pk_file_path) and os.path.exists(sk_file_path):
-            self.public_key_path = pk_file_path
-            self.secret_key_path = sk_file_path
+            self.public_dil_key_path = pk_file_path
+            self.secret_dil_key_path = sk_file_path
             log.info("Key pair paths loaded successfully.")
             return True
         return False
     def sign(self, message):
         """Signe un message (ex: la clé publique KEM) avec la clé privée de Bob."""
-        if not self.secret_key_path:
+        if not self.secret_dil_key_path:
             raise RuntimeError("Secret key path not loaded.")
         
         msg_temp = "temp_message.bin"
@@ -87,7 +87,7 @@ class SignModule:
             # Commande native (sans provider args)
             subprocess.run([
                 "openssl", "pkeyutl", "-sign",
-                "-inkey", self.secret_key_path,
+                "-inkey", self.secret_dil_key_path,
                 "-in", msg_temp,
                 "-out", sig_temp
             ], check=True, capture_output=True)
@@ -125,11 +125,36 @@ class SignModule:
             log.error(f"Error during PKI validation: {e}")
             return None
 
-def clean(self):
-        """Clean up local references."""
-        self.pk_path = None
-        self.sk_path = None
-        log.info("Signature module state cleared.")
 
-        #OpenSSL does not require explicit cleanup of keys, 
-        # but we can remove any temporary files if needed.
+    def verify_signature(self, message, signature, pub_key_path):
+        """Vérifie la signature mathématique avec la clé publique extraite du certificat."""
+        msg_temp = "temp_msg_verify.bin"
+        sig_temp = "temp_sig_verify.bin"
+        
+        try:
+            with open(msg_temp, "wb") as f: f.write(message)
+            with open(sig_temp, "wb") as f: f.write(signature)
+
+            result = subprocess.run([
+                "openssl", "pkeyutl", "-verify",
+                "-pubin", "-inkey", pub_key_path,
+                "-sigfile", sig_temp,
+                "-in", msg_temp
+            ], capture_output=True, text=True)
+
+            if "Signature Verified Successfully" in result.stdout:
+                return True
+            else:
+                log.error(f"Signature verification failed: {result.stderr}")
+                return False
+        finally:
+            for f in [msg_temp, sig_temp]:
+                if os.path.exists(f): os.remove(f)
+    def clean(self):
+            """Clean up local references."""
+            self.pk_path = None
+            self.sk_path = None
+            log.info("Signature module state cleared.")
+
+            #OpenSSL does not require explicit cleanup of keys, 
+            # but we can remove any temporary files if needed.

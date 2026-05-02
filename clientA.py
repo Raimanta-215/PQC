@@ -29,12 +29,14 @@ update_ca_trust("http://192.168.174.192:5000")
 '''
 #KEM
 ALG_KYBER = 'Kyber512'
+ALG_DIL = "ML-DSA-44"
 
 # init a comm
 alice_socket = Socket()
 alice_socket.connect('192.168.174.181', 65432) #bob
 
-protocol = PQCProtocol(ALG_KYBER, alice_socket)
+protocol = PQCProtocol(ALG_KYBER, ALG_DIL, alice_socket)
+
 try:
 
     protocol.client_handshake() 

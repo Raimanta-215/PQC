@@ -132,7 +132,7 @@ class Socket:
         
     def close(self):
         """
-         Closes the socket connection.
+        Closes the socket connection.
         """
         self.sock.close()
         log.info("Socket closed")
