@@ -2,12 +2,13 @@ name: Deploy PoC Mixed Environment
 
 on:
   push:
-    branches: [ "devv" ]
+    branches: [ "*" ]
 
 jobs:
   deploy-poc:
     runs-on: self-hosted
     environment: PoC
+    if: contains(github.event.head_commit.message, '[deploy]')
     steps:
           - name: Checkout code
             uses: actions/checkout@v4
