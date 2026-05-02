@@ -44,3 +44,5 @@ finally:
     protocol.close()
     server_sock.close()
     log.info("Ressources cleaned up, Bob is shutting down.")
+
+    
