@@ -3,7 +3,7 @@ name: Deploy PoC Mixed Environment
 on:
   push:
     branches: [ "*" ]
-    workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
   deploy-poc:
