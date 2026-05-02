@@ -14,6 +14,7 @@ log=logging.getLogger(__name__)
 
 #KEM
 ALG_KYBER = 'Kyber512'
+ALG_DIL = "ML-DSA-44"
 
 # network configuration
 server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -22,10 +23,17 @@ server_sock.listen()
 
 log.info("Bob is waiting for ALICE")
 client_sock, addr = server_sock.accept()
-bob_sock = Socket(sock=client_sock)
-protocol = PQCProtocol(ALG_KYBER, bob_sock)
+bob_sock = Socket(sock=client_sock) # Wrap the accepted socket in our Socket class for communication
+log.info(f"Connection established with ALICE at {addr}")
+protocol = PQCProtocol(ALG_KYBER, ALG_DIL, bob_sock)
 
 try:
+#####openssl pkey -in cert/bob.key -pubout -out cert/bob.pub
+
+
+    protocol.sign_module.load_keypair("cert/bob.pub", "cert/bob.key")
+    protocol.sign_module.load_certificate("cert/bob.crt")
+
     protocol.server_handshake()
 
     msg = protocol.receive_encrypted_msg()
@@ -43,3 +51,4 @@ finally:
     protocol.close()
     server_sock.close()
     log.info("Ressources cleaned up, Bob is shutting down.")
+

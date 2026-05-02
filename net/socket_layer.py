@@ -5,9 +5,29 @@ import logging
 log = logging.getLogger(__name__)
 
 class Socket:
+    """
+    Class representing a TCP socket for network communication
+    including message framing with a 4-byte header indicating message length.
+
+    Attributes:
+    - sock (socket.socket), optional:
+        The underlying socket object used for communication.
+    
+    Methods:
+    - connect(host, port): 
+        Establishes a connection to the specified host and port.
+    - send(msg_byte): 
+        Sends a message over the socket with proper framing.
+    - recieve(): 
+        Receives a message from the socket, handling the framing to determine message length.µ
+    -_recv_size_msg(n):
+        Helper method to receive a specific number of bytes from the socket, used for reading message headers
+    -close():
+        Closes the socket connection.
+    """
     def __init__(self, sock=None):
-        # if sock then for client A
-        # if not sock then creating a new for server B
+        # if not sock then creating a new for client A
+        # Bob already has a socket from accept() so we use it
         if sock is None:
             self.sock = socket.socket(
                             socket.AF_INET, socket.SOCK_STREAM)
@@ -17,6 +37,17 @@ class Socket:
             log.debug("Socket initialized with existing socket")
 
     def connect(self, host, port):  
+        """
+        Establishes a connection to the specified host and port.
+
+        Args:
+        - host (str): The hostname or IP address to connect to.
+        - port (int): The port number to connect to.
+
+        Raises:
+        - Exception: 
+            If the connection fails, an exception is raised with details of the failure.
+        """
         log.info(f"Connecting to {host}:{port}...")
         try:
             #used by client alice
@@ -27,6 +58,13 @@ class Socket:
             raise
 
     def send(self, msg_byte):
+        """
+        Sends a message over the socket with proper framing.
+
+        Args:
+        - msg_byte (bytes): The message to be sent, in bytes.
+        
+        """
         msg_len = len(msg_byte) # size of the message 
         header = struct.pack('>I', msg_len) #
         #'>' = big-endian (network byte order) - use this for all network protocols
@@ -37,6 +75,20 @@ class Socket:
 
 
     def _recv_size_msg(self, n): # amount of octets
+        """
+        Helper method to receive a specific number of bytes from the socket.
+
+        Args:
+        - n (int): The number of bytes to receive.
+
+        Returns:
+        - bytes: The received data of the specified length.
+        
+        Raises:
+        - RuntimeError: If the socket connection is broken during reception.
+        - Exception: If any other error occurs during reception, an exception is raised with details of the failure.
+        
+        """
         chunks = [] # chunk = morceu
         bytes_recv = 0 # bytes medatory for socket comm
         while bytes_recv < n :
@@ -56,6 +108,12 @@ class Socket:
         return b''.join(chunks)
     
     def recieve(self):
+        """
+        Receives a message from the socket, handling the framing to determine message length.
+
+        returns:
+        - bytes: The received message, or None if no message is received 
+        """
         try:
             header_data = self._recv_size_msg(4) # read 4 first octets
             if not header_data:
@@ -73,5 +131,8 @@ class Socket:
             raise
         
     def close(self):
+        """
+        Closes the socket connection.
+        """
         self.sock.close()
         log.info("Socket closed")
