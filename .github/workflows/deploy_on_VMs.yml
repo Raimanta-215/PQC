@@ -2,7 +2,7 @@ name: Deploy PoC Mixed Environment
 
 on:
   push:
-    branches: [ main ]
+    branches: [ devv ]
 
 jobs:
   deploy-poc:
