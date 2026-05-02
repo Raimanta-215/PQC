@@ -11,7 +11,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. Déploiement sur la machine PKI (Uniquement ca.py)
+      # 1. Déploiement sur la machine PKI 
       - name: Deploy to PKI
         uses: appleboy/scp-action@master
         with:
@@ -22,7 +22,7 @@ jobs:
           target: "~"
           strip_component: 1
 
-      # 2. Déploiement sur le SERVER BOB (Tout sauf ca.py)
+      # 2. Déploiement sur le SERVER BOB 
       - name: Deploy to Bob (Server)
         uses: appleboy/scp-action@master
         with:
@@ -34,7 +34,7 @@ jobs:
           source: "*, !pki , !clientA.py , !*.git" 
           target: "PQC/"
 
-      # 3. Déploiement sur le CLIENT ALICE (Tout sauf ca.py)
+      # 3. Déploiement sur le CLIENT ALICE 
       - name: Deploy to Alice (Client)
         uses: appleboy/scp-action@master
         with:
