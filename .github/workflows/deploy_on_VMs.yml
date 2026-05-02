@@ -11,36 +11,37 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. Déploiement sur la machine PKI 
       - name: Deploy to PKI
-        uses: appleboy/scp-action@master
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOST_PKI }}
-          username: "pki"
+          username: pki
           key: ${{ secrets.SSH_PKI }}
-          source: "pki/ca.py"
-          target: "~"
-          strip_components: 1
+          script: |
+            scp -r ${{ github.workspace }}/pki/ca.py ~
 
-      # 2. Déploiement sur le SERVER BOB 
       - name: Deploy to Bob (Server)
-        uses: appleboy/scp-action@master
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOST_BOB }}
-          username: "bob"
+          username: bob
           key: ${{ secrets.SSH_BOB }}
-          # On exclut ca.py et les dossiers git
-          # rm: true # Optionnel : nettoie le dossier cible avant
-          source: "*, !pki , !clientA.py , !*.git" 
-          target: "PQC/"
+          script: |
+            mkdir -p ~/PQC
+            scp -r ${{ github.workspace }}/* ~/PQC/ \
+              --exclude='pki' \
+              --exclude='clientA.py' \
+              --exclude='.git'
 
-      # 3. Déploiement sur le CLIENT ALICE 
       - name: Deploy to Alice (Client)
-        uses: appleboy/scp-action@master
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOST_ALICE }}
-          username: "alice"
+          username: alice
           key: ${{ secrets.SSH_ALICE }}
-          source: "*, !pki , !serverB.py , !*.git" 
-          target: "PQC/"
-
+          script: |
+            mkdir -p ~/PQC
+            scp -r ${{ github.workspace }}/* ~/PQC/ \
+              --exclude='pki' \
+              --exclude='serverB.py' \
+              --exclude='.git'
