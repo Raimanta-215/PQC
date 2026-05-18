@@ -138,7 +138,7 @@ class PQCProtocol:
         log.info("Signature of the received public key is valid")
         
         # Verify Bob signature
-        is_valid_signature = self.sign_module.verify_(public_key, signature, bob_pub_key)
+        is_valid_signature = self.sign_module.verify_signature(public_key, signature, bob_pub_key)
         if not is_valid_signature:
             log.error("Invalid signature for the received public key")
             raise PermissionError("Invalid signature for the received public key")
@@ -157,8 +157,6 @@ class PQCProtocol:
         session_key = derive_symmetric_key(shared_secret)
         self.symmetric_module = SymmetricModule(session_key)
         log.info("Symmetric module initialized with derived session key")
-
-
 
     def send_encrypted_msg(self, msg):
         """

@@ -6,8 +6,15 @@ def setup_logger(role=None):
     logging.basicConfig(
         level=logging.INFO,
         format=f'%(asctime)s - [{role}] - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%H:%M:%S'
+        datefmt='%H:%M:%S',
+        filename=f"{role.lower()}.log" if role else 'app.log',
+        filemode='a',
+        encoding='utf-8',
+        force=True
     )
+
+
+
 
 
 def safe_key_hash(key):

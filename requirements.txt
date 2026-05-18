@@ -1,2 +1,5 @@
 liboqs-python
 cryptography
+pyfiglet 
+rich
+textual
