@@ -1,11 +1,10 @@
-/* style.css */
 Screen {
     align: center middle;
 }
 
 #chat_area {
     width: 65%;
-    border-right: solid green;
+    border-right: solid rgb(123, 39, 96);
     padding: 1;
 }
 
@@ -15,8 +14,8 @@ Screen {
 }
 
 #chat_history {
-    height: 1fr; /* Prend tout l'espace disponible au-dessus de l'input */
-    border: round gray;
+    height: 1fr; 
+    border: round rgb(110, 195, 255);
 }
 
 #msg_input {
@@ -25,11 +24,10 @@ Screen {
 
 #metrics {
     height: 30%;
-    border: round blue;
+    border: round rgb(32, 32, 78);
     padding: 1;
 }
 
 #system_logs {
-    height: 70%;
     border: round orange;
 }

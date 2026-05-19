@@ -45,7 +45,8 @@ class SessionModule:
 
                     log.info(f"Received message: {len(msg)} bytes")
                     decoded_msg = msg.decode('utf-8', errors='replace')
-                    self.on_message_callback(decoded_msg, size=len(msg))  # Pass message and size to callback
+                    if self.on_message_callback:
+                        self.on_message_callback(decoded_msg, size=len(msg))  # Pass message and size to callback
                     print(f"[MSG RCV]: {decoded_msg}")
             except Exception as e:
                 log.error(f"Error processing message: {str(e)}")

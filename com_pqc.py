@@ -30,14 +30,13 @@ def run_server_console():
     log.info(f"Bob is listening on port {PORT} waiting for ALICE...")
     client_sock, addr = server_sock.accept()
     
-    bob_sock = Socket(sock=client_sock) # On enveloppe le socket
+    bob_sock = Socket(sock=client_sock)
     log.info(f"Connection established with ALICE at {addr}")
     
     protocol = PQCProtocol(ALG_KYBER, ALG_DIL, bob_sock)
     session = None  # Initialisation propre pour le bloc finally
 
     try:
-        # Chargement des clés et certificats (openssl pkey...)
         protocol.sign_module.load_keypair("cert/bob.pub", "cert/bob.key")
         protocol.sign_module.load_certificate("cert/bob.crt")
 

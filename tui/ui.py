@@ -141,7 +141,6 @@ class UserInterface(App):
         setup_logger(role=self.default_role)
 
         root_log = logging.getLogger()
-        # root_log.setLevel(logging.INFO)
 
         tui_handler = Logger(self)
         formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
