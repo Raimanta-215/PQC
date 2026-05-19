@@ -1,1 +1,1 @@
-from .logger import setup_logger, safe_key_hash
+from .logger import setup_logger, safe_key_hash, Logger

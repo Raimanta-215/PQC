@@ -2,6 +2,18 @@ import logging
 import hashlib
 
 
+class Logger(logging.Handler):
+    def __init__(self, app_instance):
+        super().__init__()
+        self.app = app_instance
+
+    def emit(self, record):
+        log_entry = self.format(record)
+        try:
+                self.app.call_from_thread(self.app.log_to_monitor, log_entry)
+        except Exception as e:
+            print(f"Error emitting log message: {str(e)}")
+
 def setup_logger(role=None):
     logging.basicConfig(
         level=logging.INFO,
@@ -12,9 +24,6 @@ def setup_logger(role=None):
         encoding='utf-8',
         force=True
     )
-
-
-
 
 
 def safe_key_hash(key):
