@@ -1,0 +1,33 @@
+Screen {
+    align: center middle;
+}
+
+#chat_area {
+    width: 65%;
+    border-right: solid rgb(123, 39, 96);
+    padding: 1;
+}
+
+#info_area {
+    width: 35%;
+    padding: 1;
+}
+
+#chat_history {
+    height: 1fr; 
+    border: round rgb(110, 195, 255);
+}
+
+#msg_input {
+    dock: bottom;
+}
+
+#metrics {
+    height: 30%;
+    border: round rgb(32, 32, 78);
+    padding: 1;
+}
+
+#system_logs {
+    border: round orange;
+}
