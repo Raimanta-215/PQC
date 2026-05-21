@@ -48,6 +48,7 @@ class PQCProtocol:
         3. Sign the ciphertext with the server's signing key.
         4. Send the client's public key, the signature, and the server's certificate to the client.
         5. Derive a symmetric session key from the shared secret and initialize the symmetric module for encryption/decryption.
+        6. MAC the handshake transcript and verify the client's finished message to complete the handshake.
 
         """
         log.info("Starting server handshake...")
@@ -73,27 +74,34 @@ class PQCProtocol:
             log.error(f"Failed to sign the ciphertext - {str(e)}")
             raise RuntimeError("Failed to sign the ciphertext")    
 
+
+        # 4. Send the client's public key, the signature, and the server's certificate to the client.
+
         payload = [ciphertext, signature, self.sign_module.cert_data]
 
-        # 3 : Send public key and signature to client
         for item in payload:
             self.net.send(item)
             self.finish_transcript += item
         log.info("Public key and signature sent to client")
 
 
-        # 4: Derive symmetric key and initialize symmetric module
+        # 5: Derive symmetric key and initialize symmetric module
         finished_key, session_key = derive_keys(shared_secret)
         self.symmetric_module = SymmetricModule(session_key)
         log.info("Symmetric module initialized with derived session key")
 
+        # 6: MAC the handshake transcript and verify client's finished message
         transcript_hash = finish_handshake_transcript(self.finish_transcript)
         finished_mac = generate_finished_mac(finished_key, transcript_hash)
 
-        
         self.send_encrypted_msg(finished_mac)
 
-        
+        client_finished = self.receive_encrypted_msg()
+        if not verify_finished_mac(finished_key, transcript_hash, client_finished):
+            log.error("Handshake verification failed: Client's finished message does not match expected value")
+            raise RuntimeError("Handshake verification failed")
+        log.info("Handshake verification passed successfully")
+
 
     def client_handshake(self):
         """
@@ -105,6 +113,7 @@ class PQCProtocol:
         3. Verify the server's certificate and the signature of the received public key.
         4. Decapsulate the received ciphertext using the ephemeral secret key to obtain the shared secret.
         5. Derive a symmetric session key from the shared secret and initialize the symmetric module
+        6. MAC the handshake transcript and verify the server's finished message to complete the handshake.
         """
         log.info("Starting client handshake...")
         #  1: CLIENT HELLO create a key pair and send the public key to the server
@@ -152,7 +161,7 @@ class PQCProtocol:
             raise PermissionError("Invalid signature for the received public key")
         log.info("Signature of the received public key is valid")
         
-        # Verify Bob signature
+        # 3: Verify Bob signature
         is_valid_signature = self.sign_module.verify_signature(ciphertext, signature, bob_pub_key)
         if not is_valid_signature:
             log.error("Invalid signature for the received public key")
@@ -160,15 +169,16 @@ class PQCProtocol:
         log.info("Signature of the received public key is valid")
 
 
-        #  3: Encapsulate to get ciphertext and shared secret
+        #  4: Encapsulate to get ciphertext and shared secret
         shared_secret = self.kem_module.decapsulate(ciphertext, ephemeral_secret_key)
         log.info("Encapsulation successful, sending ciphertext to server")
 
-        #  4: Derive symmetric key and initialize symmetric module
+        #  5: Derive symmetric key and initialize symmetric module
         finished_key, session_key = derive_keys(shared_secret)
         self.symmetric_module = SymmetricModule(session_key)
         log.info("Symmetric module initialized with derived session key")
 
+        # 6: MAC the handshake transcript and verify server's finished message
         transcript_hash = finish_handshake_transcript(self.finish_transcript)
         finished_mac = generate_finished_mac(finished_key, transcript_hash)
 
@@ -215,7 +225,7 @@ class PQCProtocol:
             log.error("Symmetric module not initialized. Cannot receive encrypted message.")
             raise RuntimeError("Symmetric module not initialized")
 
-        ciphertext = self.net.recieve()
+        ciphertext = self.net.receive()
         log.info(f"Encrypted message received (ciphertext length: {len(ciphertext)} bytes)")
         plaintext = self.symmetric_module.decrypt(ciphertext)
         if plaintext is not None:
