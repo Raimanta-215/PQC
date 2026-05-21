@@ -18,8 +18,8 @@ class Socket:
         Establishes a connection to the specified host and port.
     - send(msg_byte): 
         Sends a message over the socket with proper framing.
-    - recieve(): 
-        Receives a message from the socket, handling the framing to determine message length.µ
+    - receive(): 
+        Receives a message from the socket, handling the framing to determine message length.
     -_recv_size_msg(n):
         Helper method to receive a specific number of bytes from the socket, used for reading message headers
     -close():
@@ -107,7 +107,7 @@ class Socket:
 
         return b''.join(chunks)
     
-    def recieve(self):
+    def receive(self):
         """
         Receives a message from the socket, handling the framing to determine message length.
 

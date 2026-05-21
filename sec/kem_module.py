@@ -28,7 +28,7 @@ class KEMModule:
         ## with oqs.KeyEncapsulation(alg) as kem:  losing key 
         log.info(f"KEM Module initialized with algorithm: {alg_name}")
    
-    def generate_keypair(self):
+    def generate_key_pair(self):
         """
         Generates a public and secret key pair for the KEM algorithm.
         returns:
