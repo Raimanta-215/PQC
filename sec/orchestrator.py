@@ -170,7 +170,7 @@ class PQCProtocol:
 
 
         #  4: Encapsulate to get ciphertext and shared secret
-        shared_secret = self.kem_module.decapsulate(ciphertext, ephemeral_secret_key)
+        shared_secret = self.kem_module.decapsulate(ciphertext)
         log.info("Encapsulation successful, sending ciphertext to server")
 
         #  5: Derive symmetric key and initialize symmetric module
