@@ -1,5 +1,6 @@
 import logging
-from sec import KEMModule, SymmetricModule, derive_symmetric_key, SignModule
+from sec import KEMModule, SymmetricModule, SignModule
+from sec.derive import derive_keys, finish_handshake_transcript, generate_finished_mac, verify_finished_mac
 
 
 
@@ -33,6 +34,7 @@ class PQCProtocol:
         self.kem_module = KEMModule(kem_alg)
         self.symmetric_module = None
         self.sign_module = SignModule(sign_alg)  
+        self.finish_transcript = b""
         log.info(f"PQC Protocol initialized with KEM algorithm: {kem_alg} and {sign_alg}")
 
 
@@ -41,84 +43,97 @@ class PQCProtocol:
         Performs the server-side handshake to establish a shared session key with the client.
 
         Steps:
-        1. Generate a KEM key pair (public and secret keys).    
-        2. Sign the public key using the signature module.
-        3. Send the public key and its signature to the client.
-        4. Receive the encapsulated key (ciphertext) from the client.
-        5. Decapsulate the received ciphertext to obtain the shared secret.
-        6. Derive a symmetric session key from the shared secret and initialize the symmetric module for encryption/decryption.
-
+        1. Receive the client's public key.
+        2. Encapsulate a shared secret using the client's public key to obtain a ciphertext and the shared secret.
+        3. Sign the ciphertext with the server's signing key.
+        4. Send the client's public key, the signature, and the server's certificate to the client.
+        5. Derive a symmetric session key from the shared secret and initialize the symmetric module for encryption/decryption.
 
         """
         log.info("Starting server handshake...")
-        # 1 : Generate KEM key pair
-        public_key, secret_key = self.kem_module.generate_keypair()
         
-        # 2 : Sign the Kyber public key
 
+        # 1. Receive public key from client
+        client_kyber_public_key = self.net.receive()  # Bob receives the public key from Alice
+        self.finish_transcript = client_kyber_public_key
+        if not client_kyber_public_key:
+            log.error("Failed to receive public key from client")
+            raise RuntimeError("Failed to receive public key from client")
+        
+
+        # 2. Encapsulate to get ciphertext and shared secret
+        ciphertext, shared_secret = self.kem_module.encapsulate(client_kyber_public_key)
+        log.info("Encapsulation successful, preparing to send public key and signature to client")
+
+        # 3. Sign the ciphertext with Bob's signing key
         try:
-            signature = self.sign_module.sign(public_key)
-            log.info(f"Public key signed successfully. Signature length: {len(signature)} bytes")
+            signature = self.sign_module.sign(ciphertext)
+            log.info(f"Ciphertext signed successfully. Signature length: {len(signature)} bytes")
         except Exception as e:
-            log.error(f"Error occurred during signing the public key: {str(e)}")
-            raise RuntimeError("Failed to sign the public key") from e
+            log.error(f"Failed to sign the ciphertext - {str(e)}")
+            raise RuntimeError("Failed to sign the ciphertext")    
 
-
-        payload = [public_key, signature, self.sign_module.cert_data]
+        payload = [ciphertext, signature, self.sign_module.cert_data]
 
         # 3 : Send public key and signature to client
         for item in payload:
             self.net.send(item)
+            self.finish_transcript += item
         log.info("Public key and signature sent to client")
 
-        # 4 : Receive encapsulated key from client
-        ciphertext = self.net.recieve()
-        log.info("Encapsulated key received from client")
 
-        # 5 : Decapsulate to get shared secret
-        if not ciphertext:
-            log.error("Failed to receive encapsulated key from client")
-            raise RuntimeError("Failed to receive encapsulated key from client")
-        else:
-            shared_secret = self.kem_module.decapsulate(ciphertext)
-            log.info("Shared secret decapsulated successfully")
+        # 4: Derive symmetric key and initialize symmetric module
+        finished_key, session_key = derive_keys(shared_secret)
+        self.symmetric_module = SymmetricModule(session_key)
+        log.info("Symmetric module initialized with derived session key")
 
-        # 6: Derive symmetric key and initialize symmetric module
-            session_key = derive_symmetric_key(shared_secret)
-            self.symmetric_module = SymmetricModule(session_key)
-            log.info("Symmetric module initialized with derived session key")
+        transcript_hash = finish_handshake_transcript(self.finish_transcript)
+        finished_mac = generate_finished_mac(finished_key, transcript_hash)
+
+        
+        self.send_encrypted_msg(finished_mac)
+
+        
 
     def client_handshake(self):
         """
         Performs the client-side handshake to establish a shared session key with the server.
 
         Steps:
-        1. Receive the server's public key and its signature.
-        2. Verify the Bob signature of the received public key.
-        3. Encapsulate a shared secret using the received public key to obtain a ciphertext and the shared secret.
-        4. Send the encapsulated key (ciphertext) back to the server.
-        5. Derive a symmetric session key from the shared secret and initialize the symmetric module  for encryption/decryption.
-
+        1. Generate an ephemeral key pair and send the public key to the server.
+        2. Receive the ciphertext, signature, and server's certificate from the server.
+        3. Verify the server's certificate and the signature of the received public key.
+        4. Decapsulate the received ciphertext using the ephemeral secret key to obtain the shared secret.
+        5. Derive a symmetric session key from the shared secret and initialize the symmetric module
         """
         log.info("Starting client handshake...")
-        #  1: Receive public key from server
+        #  1: CLIENT HELLO create a key pair and send the public key to the server
 
-        public_key = self.net.recieve()
-        signature  = self.net.recieve()
-        bob_crt    = self.net.recieve()   
+        ephemeral_public_key, ephemeral_secret_key = self.kem_module.generate_key_pair()
+        self.net.send(ephemeral_public_key)
+        self.finish_transcript = ephemeral_public_key
+        log.info("CLIENT HELLO - Client public key sent to server")        
+
+        ciphertext = self.net.receive()
+        self.finish_transcript += ciphertext
+        signature  = self.net.receive()
+        self.finish_transcript += signature
+        bob_crt    = self.net.receive()
+        self.finish_transcript += bob_crt
+
         
         log.info("Datas received from server")
 
         ## VERIFICATION OF THE RECEIVED DATA
         expected_lengths = {
-            "public_key" : self.kem_module.kem.details['length_public_key'],
+            "ciphertext" : self.kem_module.kem.details['length_ciphertext'],
             "signature" : self.sign_module.signer.details['length_signature']
         }
 
 
-        if len(public_key) != expected_lengths["public_key"]:
-            log.error(f"Received public key length {len(public_key)} does not match expected length {expected_lengths['public_key']}")
-            raise ValueError("Invalid public key length received from server")
+        if len(ciphertext) != expected_lengths["ciphertext"]:
+            log.error(f"Received ciphertext length {len(ciphertext)} does not match expected length {expected_lengths['ciphertext']}")
+            raise ValueError("Invalid ciphertext length received from server")
         if len(signature) != expected_lengths["signature"]:
             log.error(f"Received signature length {len(signature)} does not match expected length {expected_lengths['signature']}")
             raise ValueError("Invalid signature length received from server")
@@ -126,7 +141,7 @@ class PQCProtocol:
             log.error("Received empty certificate from server")
             raise ValueError("Empty certificate received from server")
         
-        log.info(f"Received public key from server: {len(public_key)} bytes, signature length: {len(signature)} bytes, certificate length: {len(bob_crt)} bytes")
+        log.info(f"Received ciphertext from server: {len(ciphertext)} bytes, signature length: {len(signature)} bytes, certificate length: {len(bob_crt)} bytes")
 
         ca_path = "cert/pqc_ca.crt"
 
@@ -138,7 +153,7 @@ class PQCProtocol:
         log.info("Signature of the received public key is valid")
         
         # Verify Bob signature
-        is_valid_signature = self.sign_module.verify_signature(public_key, signature, bob_pub_key)
+        is_valid_signature = self.sign_module.verify_signature(ciphertext, signature, bob_pub_key)
         if not is_valid_signature:
             log.error("Invalid signature for the received public key")
             raise PermissionError("Invalid signature for the received public key")
@@ -146,17 +161,25 @@ class PQCProtocol:
 
 
         #  3: Encapsulate to get ciphertext and shared secret
-        ciphertext, shared_secret = self.kem_module.encapsulate(public_key)
+        shared_secret = self.kem_module.decapsulate(ciphertext, ephemeral_secret_key)
         log.info("Encapsulation successful, sending ciphertext to server")
 
-        #  4: Send encapsulated key to server
-        self.net.send(ciphertext)
-        log.info("Ciphertext sent to server")
-
-        #  5: Derive symmetric key and initialize symmetric module
-        session_key = derive_symmetric_key(shared_secret)
+        #  4: Derive symmetric key and initialize symmetric module
+        finished_key, session_key = derive_keys(shared_secret)
         self.symmetric_module = SymmetricModule(session_key)
         log.info("Symmetric module initialized with derived session key")
+
+        transcript_hash = finish_handshake_transcript(self.finish_transcript)
+        finished_mac = generate_finished_mac(finished_key, transcript_hash)
+
+        server_finished = self.receive_encrypted_msg()
+        if not verify_finished_mac(finished_key, transcript_hash, server_finished):
+            log.error("Handshake verification failed: Server's finished message does not match expected value")
+            raise RuntimeError("Handshake verification failed")
+
+        self.send_encrypted_msg(finished_mac)
+
+
 
     def send_encrypted_msg(self, msg):
         """
