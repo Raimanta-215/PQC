@@ -1,5 +1,6 @@
-liboqs-python
+flask
 cryptography
 pyfiglet 
 rich
 textual
+requests
