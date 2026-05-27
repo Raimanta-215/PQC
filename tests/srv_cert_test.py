@@ -20,10 +20,9 @@ else:
     print("Erreur:", response.text)
 
 '''
-avec provider 
 
-openssl genpkey -algorithm p384_mldsa65 -provider oqsprovider -provider default -out cert/bob.key
+openssl genpkey -algorithm p384_mldsa65  -out cert/bob.key
 
-openssl req -new -key cert/bob.key -subj "/CN=Bob" -provider oqsprovider -provider default -out cert/bob.csr
+openssl req -new -key cert/bob.key -subj "/CN=Bob"  -out cert/bob.csr
 '''
 
