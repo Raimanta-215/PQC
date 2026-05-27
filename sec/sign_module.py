@@ -3,6 +3,7 @@ from logger import safe_key_hash
 import oqs 
 import subprocess
 import os
+import tempfile
 
 log = logging.getLogger(__name__)
 
@@ -78,49 +79,56 @@ class SignModule:
         if not self.secret_dil_key_path:
             raise RuntimeError("Secret key path not loaded.")
         
-        msg_temp = "temp_message.bin"
-        sig_temp = "temp_signature.bin"
+        msg_fd,  msg_path = tempfile.mkstemp(suffix=".bin", prefix="pqc_msg_")
+        sig_fd,  sig_path = tempfile.mkstemp(suffix=".bin", prefix="pqc_sig_")
 
+        os.close(msg_fd)
+        os.close(sig_fd)
         try:
-            with open(msg_temp, "wb") as f: f.write(message)
+            with open(msg_path, "wb") as f: f.write(message)
 
             # Commande native (sans provider args)
             subprocess.run([
                 "openssl", "pkeyutl", "-sign",
                 "-inkey", self.secret_dil_key_path,
-                "-in", msg_temp,
-                "-out", sig_temp
+                "-in", msg_path,
+                "-out", sig_path
             ], check=True, capture_output=True)
 
-            with open(sig_temp, "rb") as f:
+            with open(sig_path, "rb") as f:
                 signature = f.read()
             return signature
         finally:
-            for f in [msg_temp, sig_temp]:
-                if os.path.exists(f): os.remove(f)
-
+            for path in (msg_path, sig_path):
+                try:
+                    os.remove(path)
+                except FileNotFoundError:
+                    pass
     def verify_with_pki(self, peer_cert_bytes, ca_cert_path):
 
-        temp_cert = "temp_bob_received.crt"
-        temp_pub_key = "temp_bob_pub_extracted.pem"
+        cert_fd,  cert_path   = tempfile.mkstemp(suffix=".crt", prefix="pqc_cert_")
+        pubk_fd,  pubk_path   = tempfile.mkstemp(suffix=".pem", prefix="pqc_pub_")
 
         try:
-            with open(temp_cert, "wb") as f: f.write(peer_cert_bytes)
+            os.close(cert_fd)
+            os.close(pubk_fd)
+
+            with open(cert_path, "wb") as f: f.write(peer_cert_bytes)
 
             result = subprocess.run([
-                "openssl", "verify", "-CAfile", ca_cert_path, temp_cert
+                "openssl", "verify", "-CAfile", ca_cert_path, cert_path
             ], capture_output=True, text=True)
 
             if result.returncode != 0:
                 log.error(f"PKI Verification failed: {result.stderr}")
                 return None
 
-            with open(temp_pub_key, "w") as f_out:
+            with open(pubk_path, "w") as f_out:
                 subprocess.run([
-                    "openssl", "x509", "-in", temp_cert, "-pubkey", "-noout"
+                    "openssl", "x509", "-in", cert_path, "-pubkey", "-noout"
                 ], stdout=f_out, check=True)
 
-            return temp_pub_key
+            return pubk_path
         except Exception as e:
             log.error(f"Error during PKI validation: {e}")
             return None
@@ -128,18 +136,22 @@ class SignModule:
 
     def verify_signature(self, message, signature, pub_key_path):
         """Vérifie la signature mathématique avec la clé publique extraite du certificat."""
-        msg_temp = "temp_msg_verify.bin"
-        sig_temp = "temp_sig_verify.bin"
-        
+        msg_fd,  msg_path = tempfile.mkstemp(suffix=".bin", prefix="pqc_vmsg_")
+        sig_fd,  sig_path = tempfile.mkstemp(suffix=".bin", prefix="pqc_vsig_")
+
         try:
-            with open(msg_temp, "wb") as f: f.write(message)
-            with open(sig_temp, "wb") as f: f.write(signature)
+
+            os.close(msg_fd)
+            os.close(sig_fd)
+            
+            with open(msg_path, "wb") as f: f.write(message)
+            with open(sig_path, "wb") as f: f.write(signature)
 
             result = subprocess.run([
                 "openssl", "pkeyutl", "-verify",
                 "-pubin", "-inkey", pub_key_path,
-                "-sigfile", sig_temp,
-                "-in", msg_temp
+                "-sigfile", sig_path,
+                "-in", msg_path
             ], capture_output=True, text=True)
 
             if "Signature Verified Successfully" in result.stdout:
@@ -148,8 +160,11 @@ class SignModule:
                 log.error(f"Signature verification failed: {result.stderr}")
                 return False
         finally:
-            for f in [msg_temp, sig_temp]:
-                if os.path.exists(f): os.remove(f)
+            for path in (msg_path, sig_path):
+                try:
+                    os.remove(path)
+                except FileNotFoundError:
+                    pass
     def clean(self):
             """Clean up local references."""
             self.pk_path = None
