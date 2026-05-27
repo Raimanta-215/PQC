@@ -3,9 +3,12 @@ from scapy.all import IP, TCP, Raw
 
 def modify_packet(packet):
     scapy_packet = IP(packet.get_payload())
+    print(f"[!] Scapy paquet : {scapy_packet}")
 
     if scapy_packet.haslayer(Raw):
         payload = scapy_packet[Raw].load
+        print(f"[!] Payload : {payload[:10]} ... (total length: {len(payload)} bytes)")
+
 
         # spot exact ciphertext packet (port 65432, size between 750 and 790 bytes)
         if scapy_packet[TCP].sport == 65432 and 750 <= len(payload) <= 790:
@@ -15,12 +18,15 @@ def modify_packet(packet):
             # b"X"         -> replace the 5th byte (the first byte of the Kyber ciphertext !)
             # payload[5:]  -> concatenate the rest of the message
             scapy_packet[Raw].load = payload[:4] + b"X" + payload[5:]
+            print(f"[!] After modif {scapy_packet[Raw].load[:10]} ... (total length: {len(scapy_packet[Raw].load)} bytes)")
 
+            print(f"[?] IP : {scapy_packet[IP]}, IP lenght: {scapy_packet[IP].len}, IP checksum {scapy_packet[IP].chksum}  \n TCP checksum : {scapy_packet[TCP].chksum}")
             # delete size and checksum metadata to force recalculation
             del scapy_packet[IP].len
             del scapy_packet[IP].chksum
             del scapy_packet[TCP].chksum
 
+            print(f"[?] RECALCULATION - IP : {scapy_packet[IP]}, IP lenght: {scapy_packet[IP].len}, IP checksum {scapy_packet[IP].chksum}  \n TCP checksum : {scapy_packet[TCP].chksum}")
             # force reconstruction by Scapy
             scapy_packet = scapy_packet.__class__(bytes(scapy_packet))
             packet.set_payload(bytes(scapy_packet))
