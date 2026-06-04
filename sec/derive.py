@@ -49,7 +49,7 @@ def finish_handshake_transcript(transcript):
     transcript_hash = hashes.Hash(hashes.SHA256())
     transcript_hash.update(transcript)
     final_hash = transcript_hash.finalize()
-    log.info(f"Finalized handshake transcript hash: {final_hash}")
+    log.info(f"Finalized handshake transcript hash: {safe_key_hash(final_hash)} length: {len(final_hash)} bytes")
     return final_hash
 
 def generate_finished_mac(finished_key, transcript_hash):
@@ -64,7 +64,7 @@ def generate_finished_mac(finished_key, transcript_hash):
     - bytes: The generated MAC for the finished message.
     """
     finished_mac = hmac.new(finished_key, transcript_hash, hashlib.sha256).digest()
-    log.info(f"Generated finished MAC: {finished_mac}")
+    log.info(f"Generated finished MAC: {safe_key_hash(finished_mac)} length: {len(finished_mac)} bytes")
     return finished_mac
 
 

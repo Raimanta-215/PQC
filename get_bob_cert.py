@@ -1,3 +1,4 @@
+import json
 import requests
 
 with open("cert/bob.csr", "r") as f:
@@ -15,14 +16,12 @@ if response.status_code == 200:
 
     with open("cert/bob.crt", "w") as f:
         f.write(cert_text)
-    print("Certificat X.509 bob.crt !")
+    print("Certificate X.509 bob.crt !")
 else:
-    print("Erreur:", response.text)
+    print("Error:", response.text)
 
 '''
+openssl genpkey -algorithm p384_mldsa65 -provider oqsprovider -provider default -out cert/bob.key
 
-openssl genpkey -algorithm p384_mldsa65  -out cert/bob.key
-
-openssl req -new -key cert/bob.key -subj "/CN=Bob"  -out cert/bob.csr
+openssl req -new -key cert/bob.key -subj "/CN=Bob" -provider oqsprovider -provider default -out cert/bob.csr
 '''
-
