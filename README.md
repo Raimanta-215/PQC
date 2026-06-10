@@ -11,9 +11,18 @@ See [pki/README.md](https://github.com/Raimanta-215/PQC/tree/main/pki)
 ### 1.	Dependencies 
 ```bash
 sudo apt update
-sudo apt install -y git cmake ninja-build libssl-dev 
+sudo apt install -y git cmake ninja-build libssl-dev
 ```
+PQC requirements 
 
+```bash
+flask
+cryptography
+pyfiglet 
+rich
+textual
+requests
+```
 
 ### 2.	Liboqs library
 Following official documentation and readapted according to VMs resources.
@@ -54,6 +63,7 @@ openssl genpkey -algorithm p384_mldsa65  -out cert/bob.key
 openssl req -new -key cert/bob.key -subj "/CN=Bob" -out cert/bob.csr
 
 openssl pkey -in cert/bob.key -pubout -out cert/bob.pub
+
 ```
 ### 5. Clone ripo 
 
@@ -67,7 +77,12 @@ git clone https://github.com/Raimanta-215/PQC.git
 cd PQC/
 curl -s http://<PKI_IP>/ca | python3 -c "import sys, json; print(json.load(sys.stdin)['certificate'])" > cert/pqc_ca.crt
 ```
+### 7. Bob's certificate 
 
+```bash
+cd PQC/
+pyhton3 get_bob_cert.py
+```
 
 
 ## Launch application 
@@ -96,7 +111,9 @@ Depending on the configuration specified at launch, `com_pqc.py` will call one o
 *   **`run_server_console()`**: Starts the server in a minimalist console mode, setting up a logger configured for 'Bob'.
 *   **`run_client_console(target_ip)`**: Starts the client in console mode, setting up a logger configured for 'Alice'.
 
+### Testing
 
+See tests/README.md
 
 ## Project Architecture
 The project is modularly architected into several distinct subdirectories to separate network operations, cryptographic protocols, and visual interfaces.
