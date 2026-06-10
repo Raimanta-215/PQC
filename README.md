@@ -5,19 +5,20 @@
 The **PQC Chat Application** is a prototype messaging program based on a client-server TLS1.3 model that implements Post-Quantum Cryptography (PQC) mechanisms to protect communications. The application allows users to communicate securely, offering a choice between a standard command-line interface (console) and an advanced Textual User Interface (TUI).
 
 ## Pre-required
+### Chain of trust  
+See [pki/README.md](https://github.com/Raimanta-215/PQC/tree/main/pki)
 
-1.	Dependencies 
-"""bash
+### 1.	Dependencies 
+```bash
 sudo apt update
 sudo apt install -y git cmake ninja-build libssl-dev 
-"""
+```
 
 
-
-2.	Liboqs library
+### 2.	Liboqs library
 Following official documentation and readapted according to VMs resources.
 
-"""bash
+```bash
 git clone --depth=1 https://github.com/open-quantum-safe/liboqs
 cmake -S liboqs -B liboqs/build -DBUILD_SHARED_LIBS=ON
 cmake --build liboqs/build --parallel 1
@@ -25,17 +26,17 @@ cmake --build liboqs/build --target install
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 export OQS_INSTALL_PATH=/path/to/liboqs
-"""
+```
 
 The project must be cloned from official Github page (here getting only the last version) and compiled with cmake in a specific file called liboqs/build, the parameter -DBUILD_SHARED_LIBS=ON  is used to create a shared libraries so other programs can use it.
 The project is compiled using –build, the parameter –parallel referees to the number of processes to use, here the VMs are limited to 1.
 Last cmake command will install the compiled files into the systems files so it can be recognized.
 Finally, path to the library is declared.
 
-3.	Wrapper liboqs-python
+### 3.	Wrapper liboqs-python
 Wrapper can be cloned or directly installed with pip.
 By cloning, you have access to the latest version, which is not the case if pip install which provides an ulterior stable ver-sion .
-"""bash
+```bash
 git clone --depth=1 https://github.com/open-quantum-safe/liboqs-python
 cd liboqs-python
 pip install .
@@ -44,19 +45,41 @@ export PYTHONPATH=$PYTHONPATH:/path/to/liboqs-python
 or in python venv
 pip install liboqs-python --break-system-packages
 
-"""
-4. Create cert and CSR
+```
+### 4. Create cert and CSR
 
-"""bash
-openssl genpkey -algorithm p384_mldsa65 -provider oqsprovider -provider default -out cert/bob.key
+```bash
+openssl genpkey -algorithm p384_mldsa65  -out cert/bob.key
 
 openssl req -new -key cert/bob.key -subj "/CN=Bob" -out cert/bob.csr
 
-"""
+openssl pkey -in cert/bob.key -pubout -out cert/bob.pub
+```
+### 5. Clone ripo 
 
-## Launch application modes
+```bash
+git clone https://github.com/Raimanta-215/PQC.git
+```
 
-PQC Chat Application
+### 6. Alice CA certificate request 
+
+```bash
+cd PQC/
+curl -s http://<PKI_IP>/ca | python3 -c "import sys, json; print(json.load(sys.stdin)['certificate'])" > cert/pqc_ca.crt
+```
+
+
+
+## Launch application 
+
+### Pyhton venv
+```bash
+python -m venv .pqc
+source .pqc/bin/activate
+cd PQC/
+```
+
+### PQC Chat Application
 """bash
 options:
   -h, --help       show this help message and exit
@@ -72,6 +95,8 @@ Depending on the configuration specified at launch, `com_pqc.py` will call one o
 *   **`run_client(target_ip)`**: Starts the application in Client mode using the TUI interface, targeting the specified server IP.
 *   **`run_server_console()`**: Starts the server in a minimalist console mode, setting up a logger configured for 'Bob'.
 *   **`run_client_console(target_ip)`**: Starts the client in console mode, setting up a logger configured for 'Alice'.
+
+
 
 ## Project Architecture
 The project is modularly architected into several distinct subdirectories to separate network operations, cryptographic protocols, and visual interfaces.
