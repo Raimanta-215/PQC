@@ -56,9 +56,10 @@ pip install liboqs-python --break-system-packages
 
 ```
 ### 4. Create cert and CSR
+Certificates must be created manually, depending on the Dilithium version used, the same configuration must be used for the program configuration.
 
 ```bash
-openssl genpkey -algorithm p384_mldsa65  -out cert/bob.key
+openssl genpkey -algorithm ML-DSA-44  -out cert/bob.key
 
 openssl req -new -key cert/bob.key -subj "/CN=Bob" -out cert/bob.csr
 
@@ -86,6 +87,8 @@ pyhton3 get_bob_cert.py
 
 
 ## Launch application 
+
+Program's default algorithms are ML-DSA-44 and Kyber512. Different configurations can be made in the TUI version.
 
 ### Pyhton venv
 ```bash
