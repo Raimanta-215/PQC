@@ -98,7 +98,7 @@ cd PQC/
 ```
 
 ### PQC Chat Application
-"""bash
+```bash
 options:
   -h, --help       show this help message and exit
   --server         Run in server mode (Bob)
@@ -106,10 +106,10 @@ options:
   --ip IP          Target IP for client
   -I, --interface  Use TUI interface (Textual) instead of console
 
-"""
+```
 
 Depending on the configuration specified at launch, `com_pqc.py` will call one of these four main functions:
-*  ``python3 com_pqc.py --server -I` **`run_server()`**: Starts the application in Server mode using the TUI interface.
+*  `python3 com_pqc.py --server -I` **`run_server()`**: Starts the application in Server mode using the TUI interface.
 *   **`run_client(target_ip)`**: Starts the application in Client mode using the TUI interface, targeting the specified server IP.
 *   **`run_server_console()`**: Starts the server in a minimalist console mode, setting up a logger configured for 'Bob'.
 *   **`run_client_console(target_ip)`**: Starts the client in console mode, setting up a logger configured for 'Alice'.
